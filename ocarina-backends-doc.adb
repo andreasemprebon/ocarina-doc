@@ -49,7 +49,7 @@ with Ada.Strings.Unbounded;
 package body Ocarina.Backends.Doc is
    package AIN renames Ocarina.ME_AADL.AADL_Instances.Nodes;
    package ATN renames Ocarina.ME_AADL.AADL_Tree.Nodes;
-   
+
    use Ocarina.Namet;
    use Ada.Text_IO;
    use Ada.Strings.Fixed;
@@ -58,20 +58,18 @@ package body Ocarina.Backends.Doc is
    use Ocarina.Backends.Utils;
    use AIN;
    use Ocarina.BE_AADL.Components;
-   
+
    FD_System         : File_Type;
 
    FD               : File_Type;
-   Root_System_Name : Name_Id;
 
-	
    --------------------------------------
    -- Procedura che visita i vari nodi --
    --------------------------------------
 
    procedure Visit (E : Node_Id);
    procedure Visit_Component_Instance (E : Node_Id);
-   
+
    procedure Print_Title ( Title : String );
    procedure Print_Subtitle ( Title : String );
    procedure Print_Header (CharIn : String; Title : String);
@@ -121,14 +119,19 @@ package body Ocarina.Backends.Doc is
 
    procedure Visit_Component_Instance (E : Node_Id) is
 	Category    : constant Component_Category := Get_Category_Of_Component (E);
-	Comp_Name   : constant Name_Id := Normalize_Name (Display_Name (Identifier (E)));
+	Comp_Name   : constant Name_Id := Display_Name (Identifier (E));
 	F           : Node_Id;
    begin
-	
-      Print_Func_Output ("Normalize_Name (Display_Name (Identifier (E)))", Get_Name_String (Comp_Name));
+      -- La Normalize_Name sotituisce i punti . con dei trattini bassi _
+      -- Estremamante scomoda
+      Print_Func_Output ("Normalize_Name (Display_Name (Identifier (E)))", Get_Name_String (Normalize_Name (Comp_Name)));
+      Print_Func_Output ("Display_Name (Identifier (E))", Get_Name_String (Comp_Name));
       Print_Func_Output ("Get_Category_Of_Component (E)", Component_Category'Image (Category));
 
       Print_Title ("Features");
+      
+      -- Se si usa la 'Image di ADA spesso si ottengono numeri, bisogna quindi usare
+      -- la funzione di Ocarina Get_Name_String che restituisce il nome effettivo usato nell'AADL
       
       -- Features (E) ritorna un List_Id
       -- First_Node converte da List_Id a Node_Id
@@ -144,15 +147,17 @@ package body Ocarina.Backends.Doc is
          while Present (F) loop
             Print_Func_Output ("Display_Name (Identifier (F))", Get_Name_String (Display_Name (Identifier (F))));
             
-            
-            --  Direction: in/out/inout
-            Print_Subtitle ("Direction: in/out/inout");
-            
+            -- ###############################
+            -- ### Direction: in/out/inout ###
+            -- ###############################            
             declare
-               Direction_Node : Node_Id;
                Direction_Kind : Name_Id;
             begin
+               -- Controllo se la feature controllata (che è un nodo dell'albero) è di tipo
+               -- K_Port_Spec_Instance. I tipi sono definiti nel file ocarina-me_aadl-aadl_instances-nodes.ads
+               -- come una enum chiama NodeKind
                if Kind (F) = K_Port_Spec_Instance then
+                  
                   if Is_In (F) and then not Is_Out (F) then
                      Direction_Kind := Get_String_Name ("in");
                   elsif (not Is_In (F)) and then Is_Out (F) then
@@ -160,11 +165,51 @@ package body Ocarina.Backends.Doc is
                   elsif Is_In (F) and then Is_Out (F) then
                      Direction_Kind := Get_String_Name ("inout");
                   end if;
+                  
                else
                   Direction_Kind := Get_String_Name ("none");
                end if;
+               
+               Print_Func_Output ("Direction_Kind", Get_Name_String (Direction_Kind));
+               
+               
             end;
             
+            -- ###################################
+            -- ### Type: event/data/event data ###
+            -- ###################################
+            declare
+               Type_Kind : Name_Id;
+               Name_F : Name_Id;
+            begin
+               -- Controllo la tipologia di porta. Per le porte NON event posso anche chiedere
+               -- il nome del tipo associato, mentre Ocarina va in crash se lo si chiede per
+               -- quelle di tipo data (ed infatti in AADL non lo si può neanche specificare).
+               Name_F := Get_String_Name ("none");
+               if Kind (F) = K_Port_Spec_Instance then
+                  if Is_Event (F) and then not Is_Data (F) then
+                     Type_Kind := Get_String_Name ("event");
+                  elsif not Is_Event (F) and then Is_Data (F) then
+                     Type_Kind := Get_String_Name ("data");
+                     Name_F := Display_Name (Identifier (Corresponding_Instance (F)));
+                  elsif Is_Event (F) and then Is_Data (F) then
+                     Type_Kind := Get_String_Name ("event_data");
+                     Name_F := Display_Name (Identifier (Corresponding_Instance (F)));
+                  end if;
+               elsif Kind (F) = K_Subcomponent_Access_Instance then
+                  Type_Kind := Get_String_Name ("access");
+                  Name_F := Display_Name (Identifier (Corresponding_Instance (F)));
+               else
+                  Type_Kind := Get_String_Name ("feature");
+                  Name_F := Display_Name (Identifier (Corresponding_Instance (F)));
+               end if;
+               
+               Print_Func_Output ("Type_Kind", Get_Name_String (Type_Kind));
+               Print_Func_Output ("Display_Name",  Get_Name_String (Name_F));
+            end;
+           
+            
+            Put_Line("");
             -- Passo alla Feature successiva
             F := Next_Node (F);
          end loop;
