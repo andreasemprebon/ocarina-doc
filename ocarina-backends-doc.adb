@@ -126,10 +126,13 @@ package body Ocarina.Backends.Doc is
       -- Estremamante scomoda
       Print_Func_Output ("Normalize_Name (Display_Name (Identifier (E)))", Get_Name_String (Normalize_Name (Comp_Name)));
       Print_Func_Output ("Display_Name (Identifier (E))", Get_Name_String (Comp_Name));
-      Print_Func_Output ("Get_Category_Of_Component (E)", Component_Category'Image (Category));
-
-      Print_Title ("Features");
       
+      Print_Func_Output ("Get_Category_Of_Component (E)", Component_Category'Image (Category));
+      
+      Print_Func_Output ("Namespace", Get_Name_String (Display_Name (Identifier (Namespace (E)))));
+      
+      Print_Title ("Features");
+
       -- Se si usa la 'Image di ADA spesso si ottengono numeri, bisogna quindi usare
       -- la funzione di Ocarina Get_Name_String che restituisce il nome effettivo usato nell'AADL
       
@@ -218,19 +221,74 @@ package body Ocarina.Backends.Doc is
          Print_Func_Output ("Present (Feature (E))", "False");
       end if;
       
-     
+      Print_Title ("Properties");
       
+      if Present (Properties (E)) then
+         Print_Func_Output ("Present (Properties (E))", "True");
+         
+         F := First_Node (Properties (E));
+         while Present (F) loop
+            
+            Print_Func_Output ("Display_Name (Identifier (F))", Get_Name_String (Display_Name (Identifier (F))));
+            F := Next_Node (F);
+         end loop;
+      else
+         Print_Func_Output ("Present (Properties (E))", "False");
+      end if;
+      
+      Print_Title ("Connections");
+      
+      if Present (Connections (E)) then
+         Print_Func_Output ("Present (Connections (E))", "True");
+         
+         F := First_Node (Connections (E));
+         while Present (F) loop
+            
+            Print_Func_Output ("Display_Name (Identifier (F))", Get_Name_String (Display_Name (Identifier (F))));
+            Print_Func_Output ("Kind (F)", Node_Kind'Image (Kind (F)));
+            Print_Func_Output ("Get_Category_Of_Connection (F)", Port_Connection_Type'Image ( Get_Category_Of_Connection (F)) );
+            
+            if Get_Category_Of_Connection (F) = CT_Port_Connection then
+               
+               Print_Func_Output ("Source",  Get_Name_String (Display_Name (Identifier (Get_Referenced_Entity (Source (F))))));
+               Print_Func_Output ("Dest",  Get_Name_String (Display_Name (Identifier (Get_Referenced_Entity (Destination (F))))));
+               
+               Print_Func_Output ("Parent Source",  Get_Name_String (Display_Name (Identifier (Parent_Component ((Get_Referenced_Entity (Source (F))))))));
+               Print_Func_Output ("Parent Source Name",  Get_Name_String (Display_Name (Identifier (Item (AIN.First_Node (Path (Source (F))))))));
+               
+               Print_Func_Output ("Parent Dest",  Get_Name_String (Display_Name (Identifier (Parent_Component ((Get_Referenced_Entity (Destination (F))))))));
+               Print_Func_Output ("Parent Dest Name",  Get_Name_String (Display_Name (Identifier (Item (AIN.First_Node (Path (Destination (F))))))));
+               
+               
+               
+            end if;
+            
+            
+            F := Next_Node (F);
+         end loop;
+      else
+         Print_Func_Output ("Present (Connections (E))", "False");
+      end if;
+
       Print_Title ("Subcomponents");
       if Present (Subcomponents (E)) then
          Print_Func_Output ("Present (Subcomponents (E))", "True");
          F := First_Node (Subcomponents (E));
          while Present (F) loop
+            Print_Func_Output ("Display_Name (Identifier (F))", Get_Name_String (Display_Name (Identifier (F))));
+            -- Print_Func_Output ("Fully_Qualified_Instance_Name (E)", Get_Name_String (Fully_Qualified_Instance_Name (Corresponding_Instance (F))));
+      
+            
             Visit (Corresponding_Instance (F));
             F := Next_Node (F);
          end loop;
       else
          Print_Func_Output ("Present (Subcomponents (E))", "False");
       end if;
+      
+      Put_Line("");
+      Put_Line("------------------------");
+      Put_Line("");
       
    end Visit_Component_Instance;
 
@@ -296,7 +354,7 @@ package body Ocarina.Backends.Doc is
    -----------
    procedure Reset is
    begin
-      Null;
+      null;
    end Reset;
 
 end Ocarina.Backends.Doc;
